@@ -68,6 +68,15 @@ services:
       - caddy_data:/data        # SERTİFİKALAR burada; silinirse Let's Encrypt'ten yeniden alınır (sınırı var)
       - caddy_config:/config
       - ../caddy-sites:/srv/sites:ro   # sunucudaki ~/caddy-sites: diğer sitelerin dosyaları ve Caddy blokları
+    networks:
+      - default
+      - proxy   # ~/apps altındaki diğer projeler (uptime-kuma, umami, n8n) bu ağdan erişilir
+
+networks:
+  # Sunucudaki ortak ağ: Caddy diğer compose projelerinin konteynerlerine bu ağ üzerinden ulaşır.
+  # update.sh yoksa oluşturur (elle:  docker network create proxy).
+  proxy:
+    external: true
 
 volumes:
   pgdata:

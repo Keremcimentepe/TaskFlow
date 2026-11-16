@@ -26,6 +26,9 @@ if [[ -d .git ]]; then
   git pull --ff-only
 fi
 
+# Caddy'nin diğer projelere ulaştığı ortak ağ (docker-compose.prod.yml'de external olarak tanımlı)
+docker network inspect proxy >/dev/null 2>&1 || docker network create proxy >/dev/null
+
 echo "==> İmajlar derleniyor ve konteynerler yenileniyor"
 "${COMPOSE[@]}" up -d --build --remove-orphans
 
