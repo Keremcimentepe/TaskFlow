@@ -3,15 +3,17 @@ name: CI
 # Her push ve pull request'te: API testleri, arayüz testleri, gerçek veritabanıyla duman testi.
 # main'e girince API imajı GitHub Container Registry'ye (ghcr.io) yüklenir.
 # Render, "autoDeployTrigger: checksPass" sayesinde ancak bu kontroller geçince canlıya alır.
+# Oracle sunucusu: kontroller geçince "deploy" işi SSH ile sunucuda deploy/update.sh'i çalıştırır.
 on:
   push:
     branches: [main]
   pull_request:
 
-# Aynı dal için yeni bir çalıştırma başlarsa eskisini iptal et
+# Aynı PR için yeni bir çalıştırma başlarsa eskisini iptal et. main'de iptal etme:
+# yarıda kesilen bir deploy sunucuyu yarım güncellenmiş bırakabilir; yeni çalıştırma sıraya girer.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -152,3 +154,30 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Oracle sunucusuna deploy
+    # Yalnızca main'e girişte ve testler yeşilse
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [api, ui, docker-smoke]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      # Sunucudaki anahtar kısıtlı: authorized_keys'teki command= yalnızca ~/apps/deploy/deploy.sh'i
+      # çalıştırır, o da yalnızca "gorevtakip" ve "portfolio" komutlarını kabul eder.
+      - name: SSH anahtarını hazırla
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: deploy/update.sh (kod çek, derle, yenile, /api/health bekle)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: >
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes
+          -o ServerAliveInterval=30 "ubuntu@$DEPLOY_HOST" gorevtakip

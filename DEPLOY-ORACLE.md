@@ -122,7 +122,16 @@ cd ~/GorevTakip
 bash deploy/update.sh
 ```
 
-`git pull`, yeniden derleme, yeniden başlatma ve sağlık kontrolü tek komutta. Veritabanı şeması değiştiyse (yeni migration) API açılışta kendisi uygular. Bu yöntem GitHub Actions'a bağlı değildir: testler yeşil olmadan da güncelleyebilirsin, o yüzden önce Actions'ın yeşil olduğunu kontrol et. (Güncellemeyi Actions'tan otomatik tetiklemek istersen bu ayrı bir adımdır.)
+`git pull`, yeniden derleme, yeniden başlatma ve sağlık kontrolü tek komutta. Veritabanı şeması değiştiyse (yeni migration) API açılışta kendisi uygular. Bu yöntem GitHub Actions'a bağlı değildir: testler yeşil olmadan da güncelleyebilirsin, o yüzden önce Actions'ın yeşil olduğunu kontrol et.
+
+### Otomatik deploy (GitHub Actions)
+
+`main`'e push edince CI'daki `deploy` işi, testler yeşilse SSH ile sunucuda aynı `update.sh`'i çalıştırır. Elle çalıştırmak yalnızca yedek yoldur.
+
+- Sunucuda `~/apps/deploy/deploy.sh` yalnızca `gorevtakip` ve `portfolio` komutlarını kabul eder; aynı anda iki deploy çalışmaz (`flock`).
+- `~/.ssh/authorized_keys` içindeki anahtar `restrict,command="/home/ubuntu/apps/deploy/deploy.sh"` ile kısıtlıdır: kabuk açamaz, yalnızca bu script'i çalıştırır.
+- GitHub → Settings → Secrets and variables → Actions: `DEPLOY_SSH_KEY` (özel anahtar), `DEPLOY_KNOWN_HOSTS` (sunucunun host anahtarı satırı), `DEPLOY_HOST` (sunucunun IP'si).
+- Oracle'ın security list'inde 22. port GitHub'ın sunucularına açık olmalı (varsayılan kural `0.0.0.0/0`).
 
 ## 7. Yedek
 
